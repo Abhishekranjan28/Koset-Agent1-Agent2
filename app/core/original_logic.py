@@ -126,7 +126,7 @@ def detect_distributed(script_text):
 # =======================================
 # LLM Fallback (Generalized)
 # =======================================
-genai.configure(api_key=os.getenv("GEMINI_API_KEY", "AIzaSyCaErdiv8d8gZooczREo0vfdW3IFcF4rNU"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 json_schema = {
     "type": "object",

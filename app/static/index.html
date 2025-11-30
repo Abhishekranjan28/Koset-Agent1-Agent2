@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Koset API Tester (2-endpoint, auto-estimate)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a; --panel: #111827; --muted: #94a3b8; --text: #e5e7eb;
+      --accent: #22d3ee; --ok: #10b981; --err: #ef4444; --warn: #f59e0b;
+      --card: #0b1220; --border: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: linear-gradient(120deg, #0f172a, #0b1220);
+      color: var(--text);
+    }
+    header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(6px);
+      background: rgba(15,23,42,.8);
+      z-index: 1;
+    }
+    h1 { margin: 0 0 8px; font-size: 20px; }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    h3 { margin: 0 0 8px; font-size: 14px; }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    input[type="text"], input[type="url"] {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      width: 100%;
+    }
+    button {
+      background: var(--accent);
+      color: #001419;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .05s ease;
+      font-size: 13px;
+    }
+    button:hover { transform: translateY(-1px); }
+    .btn-subtle {
+      background: #1f2937;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    main {
+      padding: 20px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: radial-gradient(1200px 400px at -10% -50%, #1f2b52 0%, transparent 60%), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin: 6px 0 12px;
+    }
+    .row > label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .row input[type="file"] {
+      display: inline-block;
+      padding: 8px;
+      border-radius: 10px;
+      background: var(--card);
+      border: 1px dashed var(--border);
+      color: var(--text);
+      width: 100%;
+    }
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .out {
+      background: #0a0f1d;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      white-space: pre;
+      overflow: auto;
+      max-height: 260px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+    .pill.ok { background: #06351f; color: #7ee2aa; border: 1px solid #14532d; }
+    .pill.err { background: #3b0c0c; color: #fda4af; border: 1px solid #7f1d1d; }
+    .pill.warn{ background: #3a2d0a; color: #fde68a; border: 1px solid #92400e; }
+    .sep { height: 1px; background: var(--border); margin: 14px 0; }
+    .small { font-size: 12px; color: var(--muted); }
+    .tiny { font-size: 11px; color: var(--muted); }
+    a { color: #7dd3fc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .kbd {
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: #0f172a;
+      font-family: inherit;
+    }
+    .history {
+      margin-top: 10px;
+      border-top: 1px dashed var(--border);
+      padding-top: 10px;
+    }
+    .hist-list {
+      display: grid;
+      gap: 8px;
+      max-height: 180px;
+      overflow: auto;
+      margin-top: 8px;
+    }
+    .hist-item {
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0b1220;
+      display: grid;
+      gap: 6px;
+    }
+    .hist-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .hist-buttons {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Koset API Tester (2-endpoint flow)</h1>
+  <div class="row">
+    <label for="serverUrl">Server</label>
+    <input id="serverUrl" type="url" placeholder="http://localhost:8000" />
+    <button id="saveServer" class="btn-subtle">Save</button>
+    <button id="pingBtn" class="btn-subtle">Ping /health</button>
+    <span id="pingStatus" class="pill warn">Not pinged</span>
+  </div>
+</header>
+
+<main class="grid">
+  <!-- Upload both training + dataset -->
+  <section class="card">
+    <h2>1) Upload Training & Dataset</h2>
+    <div class="hint">
+      Calls <span class="kbd">POST /upload</span><br />
+      Training → <em>uploaded_training/&lt;project_name&gt;</em><br />
+      Dataset → <em>uploaded_datasets/&lt;dataset_name&gt;</em><br />
+      After this, just click <strong>Estimate & Analyze</strong>.<br />
+      For remote/URL sources (GitHub, Hugging Face, JSON config), you can skip upload and use
+      the <strong>Source</strong> field in step 2.
+    </div>
+
+    <h3>Training</h3>
+    <div class="row" style="gap:8px;">
+      <input id="projectName" type="text" placeholder="project_name (default: 'default_project')" />
+      <input id="trainingFiles" type="file" multiple />
+    </div>
+
+    <h3 style="margin-top:14px;">Dataset</h3>
+    <div class="row" style="gap:8px;">
+      <input id="datasetName" type="text" placeholder="dataset_name (default: 'default_dataset')" />
+      <input id="datasetFiles" type="file" multiple />
+    </div>
+
+    <div class="btn-row">
+      <button id="uploadBtn">Upload</button>
+      <button class="btn-subtle" id="clearUploadOut">Clear Output</button>
+      <button class="btn-subtle" id="clearUploadHist">Clear History</button>
+    </div>
+
+    <div class="sep"></div>
+    <div id="uploadOut" class="out"></div>
+
+    <div class="history">
+      <div class="row" style="justify-content: space-between;">
+        <strong>Upload History</strong>
+        <span class="tiny">“Use” shows JSON, “Fill Inputs” reuses paths.</span>
+      </div>
+      <div id="uploadHist" class="hist-list"></div>
+    </div>
+  </section>
+
+  <!-- Analyze end-to-end -->
+  <section class="card">
+    <h2>2) Estimate & Analyze (End-to-End)</h2>
+    <div class="hint">
+      Calls <span class="kbd">POST /analyze</span>.<br />
+      You have two options:<br />
+      • Use <strong>Source</strong> (Intelligent Script Loader) for GitHub/HF URLs, JSON configs, raw .py URLs, etc.<br />
+      • Or leave <strong>Source</strong> empty and use <strong>training_path</strong> from the last upload.
+    </div>
+
+    <h3>Source (Intelligent Script Loader)</h3>
+    <div style="display:grid; gap:6px; margin-bottom:10px;">
+      <input
+        id="sourceInput"
+        type="text"
+        placeholder='e.g. https://github.com/user/repo, https://huggingface.co/org/model, raw .py URL, JSON config string, or local path'
+      />
+      <span class="tiny">
+        If this is filled, <code>source</code> is sent directly to the backend and <code>training_path</code> becomes optional.
+      </span>
+    </div>
+
+    <h3>Resolved Paths (from last Upload)</h3>
+    <div style="display:grid; gap:8px; margin-bottom:8px;">
+      <div>
+        <label class="tiny">training_path (file; used when Source is empty)</label>
+        <input id="trainingPath" type="text" placeholder="auto-filled after upload" />
+      </div>
+      <div>
+        <label class="tiny">dataset_path (file, optional)</label>
+        <input id="datasetPath" type="text" placeholder="auto-filled after upload" />
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:8px;">
+      <label><input id="useLLM" type="checkbox" checked /> use_llm_fallback</label>
+    </div>
+
+    <div class="btn-row" style="margin-top:10px;">
+      <button id="analyzeBtn">Estimate & Analyze</button>
+      <button class="btn-subtle" id="clearAnalyzeOut">Clear Output</button>
+      <button class="btn-subtle" id="clearAnalyzeHist">Clear History</button>
+    </div>
+
+    <div class="sep"></div>
+    <div id="analyzeOut" class="out"></div>
+
+    <div class="history">
+      <div class="row" style="justify-content: space-between;">
+        <strong>Analyze History</strong>
+        <span class="tiny">Re-run past analyses quickly (supports both source & training_path).</span>
+      </div>
+      <div id="analyzeHist" class="hist-list"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // ---------- LocalStorage keys ----------
+  const LS = {
+    server: 'koset_server',
+    upload: 'koset_upload_history',
+    analyze: 'koset_analyze_history',
+    lastUpload: 'koset_last_upload'
+  };
+
+  const MAX_ITEMS = 50;
+  const $ = (id) => document.getElementById(id);
+  const nowISO = () => new Date().toISOString();
+
+  function readLS(key, fallback = null) {
+    try {
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : (fallback ?? null);
+    } catch {
+      return fallback ?? null;
+    }
+  }
+  function writeLS(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+  }
+  function pushHist(key, item) {
+    const arr = readLS(key, []); 
+    arr.unshift({ ts: nowISO(), item });
+    if (arr.length > MAX_ITEMS) arr.length = MAX_ITEMS;
+    writeLS(key, arr);
+    return arr;
+  }
+  function pretty(obj) {
+    try { return JSON.stringify(obj, null, 2); }
+    catch { return String(obj); }
+  }
+  function show(el, obj) { el.textContent = pretty(obj); }
+  function setPill(el, kind, text) {
+    el.className = 'pill ' + kind;
+    el.textContent = text;
+  }
+
+  function server() {
+    return ($('serverUrl').value || 'http://localhost:8000').replace(/\/+$/, '');
+  }
+
+  function renderHist(listEl, key, { onUse, onFillInputs } = {}) {
+    const arr = readLS(key, []);
+    listEl.innerHTML = '';
+    if (!arr.length) {
+      const div = document.createElement('div');
+      div.className = 'tiny';
+      div.textContent = 'No history yet.';
+      listEl.appendChild(div);
+      return;
+    }
+    arr.forEach((entry, idx) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'hist-item';
+
+      const top = document.createElement('div');
+      top.className = 'hist-head';
+      const when = new Date(entry.ts).toLocaleString();
+      top.innerHTML = `<span>${when}</span><span class="tiny">#${arr.length - idx}</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'tiny';
+      const it = entry.item;
+      const summary = typeof it === 'object'
+        ? (it.summary ||
+           (it.training && (it.training.training_primary_file || it.training.training_path)) ||
+           (it.dataset && (it.dataset.dataset_primary_file || it.dataset.dataset_path)) ||
+           (it.source ? `source: ${String(it.source).slice(0, 80)}…` : '') ||
+           '')
+        : '';
+      body.textContent = summary || (JSON.stringify(it).slice(0, 180) + (JSON.stringify(it).length > 180 ? '…' : ''));
+
+      const btns = document.createElement('div');
+      btns.className = 'hist-buttons';
+
+      const btnUse = document.createElement('button');
+      btnUse.className = 'btn-subtle';
+      btnUse.textContent = 'Use';
+      btnUse.onclick = () => onUse && onUse(it);
+
+      const btnFill = document.createElement('button');
+      btnFill.className = 'btn-subtle';
+      btnFill.textContent = 'Fill Inputs';
+      btnFill.onclick = () => onFillInputs && onFillInputs(it);
+
+      const btnView = document.createElement('button');
+      btnView.className = 'btn-subtle';
+      btnView.textContent = 'View JSON';
+      btnView.onclick = () => alert(pretty(it));
+
+      btns.append(btnUse, btnFill, btnView);
+      wrap.append(top, body, btns);
+      listEl.appendChild(wrap);
+    });
+  }
+
+  // ---------- Server URL init ----------
+  (function initServer() {
+    const saved = readLS(LS.server, '');
+    $('serverUrl').value = saved || 'http://localhost:8000';
+  })();
+
+  // ---------- Ping ----------
+  $('saveServer').addEventListener('click', () => {
+    writeLS(LS.server, $('serverUrl').value || 'http://localhost:8000');
+    setPill($('pingStatus'), 'ok', 'Saved');
+  });
+
+  $('pingBtn').addEventListener('click', async () => {
+    const pill = $('pingStatus');
+    setPill(pill, 'warn', 'Pinging…');
+    try {
+      const res = await fetch(server() + '/health');
+      const data = await res.json();
+      if (res.ok && data.status === 'ok') setPill(pill, 'ok', 'OK');
+      else setPill(pill, 'err', 'Bad response');
+    } catch {
+      setPill(pill, 'err', 'Failed');
+    }
+  });
+
+  // ---------- API helpers ----------
+  async function postForm(url, formData) {
+    const res = await fetch(url, { method: 'POST', body: formData });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw { status: res.status, data };
+    return data;
+  }
+  async function postJSON(url, payload) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw { status: res.status, data };
+    return data;
+  }
+
+  // ---------- Upload card ----------
+  function paintUploadHist() {
+    renderHist($('uploadHist'), LS.upload, {
+      onUse: (it) => show($('uploadOut'), it),
+      onFillInputs: (it) => {
+        if (it.training) {
+          const t = it.training;
+          if (t.training_primary_file) {
+            $('trainingPath').value = t.training_primary_file;
+          } else if (t.training_path) {
+            $('trainingPath').value = t.training_path;
+          }
+          if (t.project_name) $('projectName').value = t.project_name;
+        }
+        if (it.dataset) {
+          const d = it.dataset;
+          if (d.dataset_primary_file) {
+            $('datasetPath').value = d.dataset_primary_file;
+          } else if (d.dataset_path) {
+            $('datasetPath').value = d.dataset_path;
+          }
+          if (d.dataset_name) $('datasetName').value = d.dataset_name;
+        }
+      }
+    });
+  }
+
+  $('uploadBtn').addEventListener('click', async () => {
+    const out = $('uploadOut');
+    out.textContent = 'Uploading…';
+    try {
+      const fd = new FormData();
+      const project = $('projectName').value || 'default_project';
+      const dataset = $('datasetName').value || 'default_dataset';
+
+      const trainingFiles = $('trainingFiles').files;
+      const datasetFiles = $('datasetFiles').files;
+
+      if (!trainingFiles.length && !datasetFiles.length) {
+        throw new Error('Pick at least training_files or dataset_files');
+      }
+
+      fd.append('project_name', project);
+      fd.append('dataset_name', dataset);
+
+      [...trainingFiles].forEach((f) => fd.append('training_files', f, f.name));
+      [...datasetFiles].forEach((f) => fd.append('dataset_files', f, f.name));
+
+      const data = await postForm(server() + '/upload', fd);
+
+      const last = {
+        summary: `project=${project}, dataset=${dataset}`,
+        training: data.training || null,
+        dataset: data.dataset || null
+      };
+      writeLS(LS.lastUpload, last);
+      pushHist(LS.upload, last);
+      paintUploadHist();
+      show(out, data);
+
+      // Auto-fill analyze paths using the PRIMARY FILES
+      if (data.training) {
+        if (data.training.training_primary_file) {
+          $('trainingPath').value = data.training.training_primary_file;
+        } else if (data.training.training_path) {
+          $('trainingPath').value = data.training.training_path;
+        }
+      }
+      if (data.dataset) {
+        if (data.dataset.dataset_primary_file) {
+          $('datasetPath').value = data.dataset.dataset_primary_file;
+        } else if (data.dataset.dataset_path) {
+          $('datasetPath').value = data.dataset.dataset_path;
+        }
+      }
+    } catch (err) {
+      show(out, { error: true, detail: err.data || String(err) });
+    }
+  });
+
+  $('clearUploadOut').addEventListener('click', () => $('uploadOut').textContent = '');
+  $('clearUploadHist').addEventListener('click', () => { writeLS(LS.upload, []); paintUploadHist(); });
+
+  // ---------- Analyze card ----------
+  function paintAnalyzeHist() {
+    renderHist($('analyzeHist'), LS.analyze, {
+      onUse: (it) => show($('analyzeOut'), it),
+      onFillInputs: (it) => {
+        if (it.training_path) $('trainingPath').value = it.training_path;
+        if (it.dataset_path) $('datasetPath').value = it.dataset_path;
+        if (it.source) $('sourceInput').value = it.source;
+      }
+    });
+  }
+
+  $('analyzeBtn').addEventListener('click', async () => {
+    const out = $('analyzeOut');
+    out.textContent = 'Estimating & Analyzing…';
+    try {
+      const source = $('sourceInput').value.trim();
+      const training_path = $('trainingPath').value.trim();
+      const dataset_path = $('datasetPath').value.trim();
+      const useLLM = $('useLLM').checked;
+
+      const payload = {
+        use_llm_fallback: useLLM
+      };
+
+      if (source) {
+        // Intelligent Script Loader usage
+        payload.source = source;
+      } else {
+        // Fallback to local-uploaded file path
+        if (!training_path) {
+          throw new Error('Provide either a Source (URL/JSON/path) or a training_path from upload.');
+        }
+        payload.training_path = training_path;
+      }
+
+      if (dataset_path) {
+        payload.dataset_path = dataset_path;
+      }
+
+      const data = await postJSON(server() + '/analyze', payload);
+
+      const recordSummary = source
+        ? `source: ${source.slice(0, 80)}${source.length > 80 ? '…' : ''}`
+        : `${training_path} | ${dataset_path || '(no dataset)'}`;
+
+      const record = {
+        summary: recordSummary,
+        training_path,
+        dataset_path,
+        source,
+        payload,
+        response: data
+      };
+      pushHist(LS.analyze, record);
+      paintAnalyzeHist();
+      show(out, data);
+    } catch (err) {
+      show(out, { error: true, detail: err.data || String(err) });
+    }
+  });
+
+  $('clearAnalyzeOut').addEventListener('click', () => $('analyzeOut').textContent = '');
+  $('clearAnalyzeHist').addEventListener('click', () => { writeLS(LS.analyze, []); paintAnalyzeHist(); });
+
+  // ---------- Initialize histories on load ----------
+  paintUploadHist();
+  paintAnalyzeHist();
+
+  // Auto-fill from last upload (if any) on load
+  (function initFromLastUpload() {
+    const last = readLS(LS.lastUpload, null);
+    if (!last) return;
+    if (last.training) {
+      const t = last.training;
+      if (t.training_primary_file) {
+        $('trainingPath').value = t.training_primary_file;
+      } else if (t.training_path) {
+        $('trainingPath').value = t.training_path;
+      }
+      if (t.project_name) $('projectName').value = t.project_name;
+    }
+    if (last.dataset) {
+      const d = last.dataset;
+      if (d.dataset_primary_file) {
+        $('datasetPath').value = d.dataset_primary_file;
+      } else if (d.dataset_path) {
+        $('datasetPath').value = d.dataset_path;
+      }
+      if (d.dataset_name) $('datasetName').value = d.dataset_name;
+    }
+  })();
+</script>
+</body>
+</html>
